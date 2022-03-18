@@ -1,0 +1,182 @@
+---
+title: "STAT 380 - MidtermPrep"
+output: html_notebook
+author: Kebei Yu
+---
+
+### Libraries
+```{r}
+library(tidyverse)
+library(mdsr)
+library(mvtnorm)
+library(cluster)
+library(factoextra)
+```
+
+## data overview
+```{r}
+#read data
+poke <- read.csv("pokedex_(Update_05.20).csv")
+```
+
+```{r}
+#inspect data
+str(poke)
+#glimpse(poke)
+```
+
+
+## normalization
+```{r}
+# def function
+rescale1 <- function(x){
+  rng <- range(x, na.rm = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+```
+
+
+```{r}
+# apple function
+pokeAtt <- poke %>% select(attack)
+#pokeAtt2 <- rescale1(pokeAtt$attack)
+
+#pokeAtt2 <- pokeAtt %>% apply(2,rescale1)
+
+pokeAtt2 <- pokeAtt %>% map_dfr(rescale1)
+pokeAtt2
+
+```
+
+```{r}
+
+```
+
+## unsupervised ML
+
+### data
+```{r}
+sample1 <-poke %>% select(hp, attack, defense, speed) %>% scale()
+
+sample2 <- sample1 %>% apply(2,rescale1)
+
+sample2
+```
+```{r}
+sample3 <- sample2[sample(nrow(sample2), 100), ]
+sample3
+```
+
+```{r}
+pairs(sample3)
+```
+```{r}
+cor(sample3)
+```
+### AHC
+
+```{r}
+eu_dist = get_dist(sample3, method = "euclidean")
+hc_complete <- hclust(eu_dist, method='complete')
+
+```
+
+```{r}
+plot(hc_complete) 
+```
+
+```{r}
+fviz_dend(hc_complete, k = 2, k_colors = "jco", as.ggplot = TRUE, show_labels = FALSE, main='Euclidean-Complete')
+```
+```{r}
+cluster_h <- cutree(hc_complete, k = 2)
+pairs(sample3, col = cluster_h)
+```
+
+## kmeans
+
+```{r}
+res <- sample3 %>% kmeans(3)
+
+ord_bs <- 1:1000 %>%
+map_dfr(
+  ~kmeans(sample3, centers = 3)$cluster %>% 
+    table())
+```
+
+
+## evaluation
+
+### silhouette widths
+```{r}
+distance <- get_dist(sample3, method="euclidean")
+sil <- silhouette(x = res$cluster, dist = distance)
+```
+
+```{r}
+# function to compute total within-cluster sum of square 
+wss <- function(mydata, k) {
+  kmeans(mydata, k, nstart = 10)$tot.withinss
+}
+
+# Compute and plot wss for k = 1 to k = 15
+k.values <- 1:15
+
+# extract wss for 2-15 clusters
+wss_values <- map_dbl(k.values, wss, mydata = sample3)
+
+plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+```
+
+```{r}
+set.seed(123) #set a seed to be sure that each kmeans is computed using the same initial centroids
+fviz_nbclust(sample3, kmeans, method = "wss")
+```
+```{r}
+fviz_nbclust(sample3, hcut, hc_method = "complete", hc_metric = "euclidean", method = "wss")
+```
+```{r}
+fviz_nbclust(sample3, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+```
+
+## pca
+```{r}
+res <- sample3 %>% prcomp(scale = TRUE)
+```
+
+```{r}
+pve <- get_eig(res)
+```
+
+```{r}
+fviz_screeplot(res, main='Scree Plot for the Decathlon2 Data')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
